@@ -1,0 +1,51 @@
+
+import React from 'react';
+
+interface CriticalAlertProps {
+  bankNames: string[];
+  onClose: () => void;
+}
+
+const CriticalAlert: React.FC<CriticalAlertProps> = ({ bankNames, onClose }) => {
+  if (bankNames.length === 0) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden border border-rose-100 animate-in zoom-in slide-in-from-bottom-4 duration-500">
+        <div className="bg-rose-500 p-6 text-white text-center relative">
+          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-black">تنبيه فني عاجل</h3>
+          <p className="text-rose-100 text-sm font-bold mt-1">تم رصد مشاكل متكررة في الربط</p>
+        </div>
+        
+        <div className="p-8">
+          <p className="text-slate-600 font-bold text-center mb-6 leading-relaxed">
+            بناءً على تقارير المستخدمين لهذا اليوم، يبدو أن هناك تعثر في خدمات لي-باي مع المصارف التالية:
+          </p>
+          
+          <div className="space-y-3 mb-8">
+            {bankNames.map((bank, index) => (
+              <div key={index} className="flex items-center gap-3 p-4 bg-rose-50 rounded-2xl border border-rose-100 text-rose-700 font-black">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                {bank}
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl hover:bg-slate-800 transition-all shadow-lg active:scale-95"
+          >
+            فهمت ذلك
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CriticalAlert;

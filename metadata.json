@@ -1,0 +1,7 @@
+{
+  "name": "LYPay Survey Hub",
+  "description": "A professional survey application for the LYPay service, tracking transaction types, bank performance, and success rates.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
