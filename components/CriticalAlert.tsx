@@ -1,17 +1,23 @@
 
 import React from 'react';
 
+interface ProblematicBankInfo {
+  bankName: string;
+  issueTypes: string[];
+  lastRejectionTime: string;
+}
+
 interface CriticalAlertProps {
-  bankNames: string[];
+  problematicBanks: ProblematicBankInfo[];
   onClose: () => void;
 }
 
-const CriticalAlert: React.FC<CriticalAlertProps> = ({ bankNames, onClose }) => {
-  if (bankNames.length === 0) return null;
+const CriticalAlert: React.FC<CriticalAlertProps> = ({ problematicBanks, onClose }) => {
+  if (problematicBanks.length === 0) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white rounded-[2rem] shadow-2xl max-w-md w-full overflow-hidden border border-rose-100 animate-in zoom-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-white rounded-[2rem] shadow-2xl max-w-lg w-full overflow-hidden border border-rose-100 animate-in zoom-in slide-in-from-bottom-4 duration-500">
         <div className="bg-rose-500 p-6 text-white text-center relative">
           <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -19,19 +25,34 @@ const CriticalAlert: React.FC<CriticalAlertProps> = ({ bankNames, onClose }) => 
             </svg>
           </div>
           <h3 className="text-xl font-black">تنبيه فني عاجل</h3>
-          <p className="text-rose-100 text-sm font-bold mt-1">تم رصد مشاكل متكررة في الربط</p>
+          <p className="text-rose-100 text-sm font-bold mt-1">تم رصد مشاكل متكررة اليوم</p>
         </div>
         
         <div className="p-8">
           <p className="text-slate-600 font-bold text-center mb-6 leading-relaxed">
-            بناءً على تقارير المستخدمين لهذا اليوم، يبدو أن هناك تعثر في خدمات لي-باي مع المصارف التالية:
+            بناءً على تقارير المستخدمين، لوحظ تعثر في خدمات لي-باي مع المصارف التالية:
           </p>
           
-          <div className="space-y-3 mb-8">
-            {bankNames.map((bank, index) => (
-              <div key={index} className="flex items-center gap-3 p-4 bg-rose-50 rounded-2xl border border-rose-100 text-rose-700 font-black">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                {bank}
+          <div className="space-y-4 mb-8 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+            {problematicBanks.map((info, index) => (
+              <div key={index} className="flex flex-col gap-2 p-5 bg-rose-50 rounded-2xl border border-rose-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-rose-800 font-black">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                    {info.bankName}
+                  </div>
+                  <div className="text-[10px] font-black bg-white px-2 py-1 rounded-lg border border-rose-200 text-rose-400">
+                    آخر تحديث: {new Date(info.lastRejectionTime).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {info.issueTypes.map((type, i) => (
+                    <span key={i} className="px-3 py-1 bg-white text-rose-600 rounded-lg text-[11px] font-bold border border-rose-100 shadow-sm">
+                      تعثر {type}
+                    </span>
+                  ))}
+                </div>
               </div>
             ))}
           </div>

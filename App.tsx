@@ -8,40 +8,74 @@ import CriticalAlert from './components/CriticalAlert';
 import { SurveyEntry, TransactionType, TransactionStatus, SubscriptionType } from './types';
 import { dbService } from './services/dbService';
 
+interface ProblematicBankInfo {
+  bankName: string;
+  issueTypes: string[];
+  lastRejectionTime: string;
+}
+
 const App: React.FC = () => {
   const [entries, setEntries] = useState<SurveyEntry[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [problematicBanks, setProblematicBanks] = useState<string[]>([]);
+  const [problematicBanks, setProblematicBanks] = useState<ProblematicBankInfo[]>([]);
   const [showAlert, setShowAlert] = useState(false);
 
+  // منطق التحقق من وجود مشاكل فنية
   const checkCriticalIssues = (allEntries: SurveyEntry[]) => {
-    const today = new Date().toDateString();
-    const todayRejections = allEntries.filter(e => 
+    // نعتبر أي حالة رفض خلال الـ 24 ساعة الماضية "مشكلة فنية" تستوجب التنبيه
+    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+    
+    const recentRejections = allEntries.filter(e => 
       e.status === TransactionStatus.REJECTED && 
-      new Date(e.createdAt).toDateString() === today
+      new Date(e.createdAt).getTime() > twentyFourHoursAgo
     );
 
-    const bankRejectionCounts = todayRejections.reduce((acc: Record<string, number>, curr) => {
-      acc[curr.bankName] = (acc[curr.bankName] || 0) + 1;
+    // تجميع حالات الرفض حسب المصرف
+    const bankGroups: Record<string, SurveyEntry[]> = recentRejections.reduce((acc, curr) => {
+      if (!acc[curr.bankName]) acc[curr.bankName] = [];
+      acc[curr.bankName].push(curr);
       return acc;
-    }, {});
+    }, {} as Record<string, SurveyEntry[]>);
 
-    const issues = Object.keys(bankRejectionCounts).filter(bank => bankRejectionCounts[bank] >= 2);
+    // تحويل البيانات إلى تنسيق مناسب للمكون المنبثق
+    const issues: ProblematicBankInfo[] = Object.keys(bankGroups)
+      .map(bank => {
+        const sortedEntries = [...bankGroups[bank]].sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        // استخراج أنواع العمليات التي تعثرت بشكل فريد
+        const uniqueTypes = Array.from(new Set(bankGroups[bank].map(e => e.transactionType)));
+        
+        return {
+          bankName: bank,
+          issueTypes: uniqueTypes,
+          lastRejectionTime: sortedEntries[0].createdAt
+        };
+      })
+      .sort((a, b) => new Date(b.lastRejectionTime).getTime() - new Date(a.lastRejectionTime).getTime());
     
     if (issues.length > 0) {
       setProblematicBanks(issues);
       setShowAlert(true);
+    } else {
+      setShowAlert(false);
     }
   };
 
   const loadData = async () => {
     setIsLoading(true);
-    await dbService.initTable();
-    const data = await dbService.getAllEntries();
-    setEntries(data);
-    checkCriticalIssues(data);
-    setIsLoading(false);
+    try {
+      await dbService.initTable();
+      const data = await dbService.getAllEntries();
+      setEntries(data);
+      // تشغيل التحقق فور تحميل البيانات
+      checkCriticalIssues(data);
+    } catch (error) {
+      console.error("Error loading data:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -55,7 +89,7 @@ const App: React.FC = () => {
       setEntries(updatedEntries);
       setShowSuccess(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      // ريفرش التحليل بعد الإضافة الجديدة
+      // إعادة التحقق من المشاكل بعد إضافة استطلاع جديد
       checkCriticalIssues(updatedEntries);
     } else {
       alert("عذراً، حدث خطأ أثناء الاتصال بقاعدة البيانات. يرجى التحقق من الاتصال والمحاولة مرة أخرى.");
@@ -96,9 +130,10 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col selection:bg-blue-100 selection:text-blue-900">
       <Header />
       
+      {/* عرض التنبيه الحرج إذا وجد */}
       {showAlert && (
         <CriticalAlert 
-          bankNames={problematicBanks} 
+          problematicBanks={problematicBanks} 
           onClose={() => setShowAlert(false)} 
         />
       )}
