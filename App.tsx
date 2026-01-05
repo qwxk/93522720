@@ -1,62 +1,75 @@
 
 import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
-import SurveyForm from './components/SurveyForm';
-import Dashboard from './components/Dashboard';
-import SuccessPage from './components/SuccessPage';
-import CriticalAlert from './components/CriticalAlert';
-import { SurveyEntry, TransactionType, TransactionStatus, SubscriptionType } from './types';
-import { dbService } from './services/dbService';
+import Header from './components/Header.tsx';
+import SurveyForm from './components/SurveyForm.tsx';
+import Dashboard from './components/Dashboard.tsx';
+import SuccessPage from './components/SuccessPage.tsx';
+import CriticalAlert from './components/CriticalAlert.tsx';
+import { SurveyEntry, TransactionType, TransactionStatus, SubscriptionType } from './types.ts';
+import { dbService } from './services/dbService.ts';
 
-interface ProblematicBankInfo {
+export interface ProblematicBankInfo {
   bankName: string;
   issueTypes: string[];
   lastRejectionTime: string;
+  rejectionCount: number;
 }
 
-const App: React.FC = () => {
+export default function App() {
   const [entries, setEntries] = useState<SurveyEntry[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [problematicBanks, setProblematicBanks] = useState<ProblematicBankInfo[]>([]);
   const [showAlert, setShowAlert] = useState(false);
 
-  // منطق التحقق من وجود مشاكل فنية
+  // منطق التنبيه الحرج والمشاكل الفنية (نافذة 24 ساعة متحركة)
   const checkCriticalIssues = (allEntries: SurveyEntry[]) => {
-    // نعتبر أي حالة رفض خلال الـ 24 ساعة الماضية "مشكلة فنية" تستوجب التنبيه
     const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
     
-    const recentRejections = allEntries.filter(e => 
-      e.status === TransactionStatus.REJECTED && 
+    const recentEntries = allEntries.filter(e => 
       new Date(e.createdAt).getTime() > twentyFourHoursAgo
     );
 
-    // تجميع حالات الرفض حسب المصرف
-    const bankGroups: Record<string, SurveyEntry[]> = recentRejections.reduce((acc, curr) => {
-      if (!acc[curr.bankName]) acc[curr.bankName] = [];
-      acc[curr.bankName].push(curr);
-      return acc;
-    }, {} as Record<string, SurveyEntry[]>);
+    const bankStats: Record<string, { rejections: SurveyEntry[], completionsCount: number }> = {};
+    
+    recentEntries.forEach(entry => {
+      if (!bankStats[entry.bankName]) {
+        bankStats[entry.bankName] = { rejections: [], completionsCount: 0 };
+      }
+      
+      if (entry.status === TransactionStatus.REJECTED) {
+        bankStats[entry.bankName].rejections.push(entry);
+      } else if (entry.status === TransactionStatus.COMPLETED) {
+        bankStats[entry.bankName].completionsCount += 1;
+      }
+    });
 
-    // تحويل البيانات إلى تنسيق مناسب للمكون المنبثق
-    const issues: ProblematicBankInfo[] = Object.keys(bankGroups)
-      .map(bank => {
-        const sortedEntries = [...bankGroups[bank]].sort((a, b) => 
+    const issues: ProblematicBankInfo[] = [];
+
+    Object.keys(bankStats).forEach(bank => {
+      const stats = bankStats[bank];
+      
+      // قاعدة العرض: وجود رفض + أقل من حالتي اكتمال للتعافي
+      if (stats.rejections.length > 0 && stats.completionsCount < 2) {
+        const sortedRejections = [...stats.rejections].sort((a, b) => 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-        // استخراج أنواع العمليات التي تعثرت بشكل فريد
-        const uniqueTypes = Array.from(new Set(bankGroups[bank].map(e => e.transactionType)));
         
-        return {
+        const uniqueIssueTypes = Array.from(new Set(stats.rejections.map(e => e.transactionType)));
+        
+        issues.push({
           bankName: bank,
-          issueTypes: uniqueTypes,
-          lastRejectionTime: sortedEntries[0].createdAt
-        };
-      })
-      .sort((a, b) => new Date(b.lastRejectionTime).getTime() - new Date(a.lastRejectionTime).getTime());
+          issueTypes: uniqueIssueTypes,
+          lastRejectionTime: sortedRejections[0].createdAt,
+          rejectionCount: stats.rejections.length
+        });
+      }
+    });
     
+    issues.sort((a, b) => new Date(b.lastRejectionTime).getTime() - new Date(a.lastRejectionTime).getTime());
+
+    setProblematicBanks(issues);
     if (issues.length > 0) {
-      setProblematicBanks(issues);
       setShowAlert(true);
     } else {
       setShowAlert(false);
@@ -69,7 +82,6 @@ const App: React.FC = () => {
       await dbService.initTable();
       const data = await dbService.getAllEntries();
       setEntries(data);
-      // تشغيل التحقق فور تحميل البيانات
       checkCriticalIssues(data);
     } catch (error) {
       console.error("Error loading data:", error);
@@ -89,10 +101,9 @@ const App: React.FC = () => {
       setEntries(updatedEntries);
       setShowSuccess(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      // إعادة التحقق من المشاكل بعد إضافة استطلاع جديد
       checkCriticalIssues(updatedEntries);
     } else {
-      alert("عذراً، حدث خطأ أثناء الاتصال بقاعدة البيانات. يرجى التحقق من الاتصال والمحاولة مرة أخرى.");
+      alert("عذراً، حدث خطأ أثناء الاتصال بقاعدة البيانات.");
     }
   };
 
@@ -117,8 +128,12 @@ const App: React.FC = () => {
       case TransactionType.QR_PAY: 
         return (
           <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center text-purple-600 border border-purple-100">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01" />
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+              <path d="M7 7h.01M17 7h.01M7 17h.01" />
             </svg>
           </div>
         );
@@ -130,7 +145,6 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col selection:bg-blue-100 selection:text-blue-900">
       <Header />
       
-      {/* عرض التنبيه الحرج إذا وجد */}
       {showAlert && (
         <CriticalAlert 
           problematicBanks={problematicBanks} 
@@ -177,7 +191,7 @@ const App: React.FC = () => {
           <SurveyForm onSubmit={handleAddEntry} />
         )}
         
-        <Dashboard entries={entries} />
+        <Dashboard entries={entries} problematicBanks={problematicBanks} />
 
         <section className="py-24 bg-slate-50 relative overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -263,23 +277,10 @@ const App: React.FC = () => {
                   </table>
                 </div>
               )}
-              
-              {!isLoading && entries.length === 0 && (
-                <div className="py-24 text-center">
-                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
-                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <h4 className="text-xl font-black text-slate-400">لا توجد سجلات في قاعدة البيانات بعد</h4>
-                </div>
-              )}
             </div>
           </div>
         </section>
       </main>
     </div>
   );
-};
-
-export default App;
+}

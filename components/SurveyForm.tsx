@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { SubscriptionType, TransactionType, TransactionStatus, SurveyEntry } from '../types';
-import { LIBYAN_BANKS } from '../constants';
+import { SubscriptionType, TransactionType, TransactionStatus, SurveyEntry } from '../types.ts';
+import { LIBYAN_BANKS } from '../constants.ts';
 
 interface SurveyFormProps {
   onSubmit: (entry: SurveyEntry) => Promise<void>;

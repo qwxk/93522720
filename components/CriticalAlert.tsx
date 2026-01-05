@@ -1,11 +1,6 @@
 
 import React from 'react';
-
-interface ProblematicBankInfo {
-  bankName: string;
-  issueTypes: string[];
-  lastRejectionTime: string;
-}
+import { ProblematicBankInfo } from '../App.tsx';
 
 interface CriticalAlertProps {
   problematicBanks: ProblematicBankInfo[];
@@ -25,7 +20,7 @@ const CriticalAlert: React.FC<CriticalAlertProps> = ({ problematicBanks, onClose
             </svg>
           </div>
           <h3 className="text-xl font-black">تنبيه فني عاجل</h3>
-          <p className="text-rose-100 text-sm font-bold mt-1">تم رصد مشاكل متكررة اليوم</p>
+          <p className="text-rose-100 text-sm font-bold mt-1">تم رصد مشاكل متكررة في الـ 24 ساعة الماضية</p>
         </div>
         
         <div className="p-8">
@@ -42,7 +37,7 @@ const CriticalAlert: React.FC<CriticalAlertProps> = ({ problematicBanks, onClose
                     {info.bankName}
                   </div>
                   <div className="text-[10px] font-black bg-white px-2 py-1 rounded-lg border border-rose-200 text-rose-400">
-                    آخر تحديث: {new Date(info.lastRejectionTime).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}
+                    {info.rejectionCount} حالات رفض
                   </div>
                 </div>
                 
@@ -52,6 +47,9 @@ const CriticalAlert: React.FC<CriticalAlertProps> = ({ problematicBanks, onClose
                       تعثر {type}
                     </span>
                   ))}
+                  <div className="mr-auto text-[10px] font-bold text-rose-400 opacity-60">
+                    آخر تعثر: {new Date(info.lastRejectionTime).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
               </div>
             ))}

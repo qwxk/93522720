@@ -1,16 +1,18 @@
 
 import React, { useMemo, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { SurveyEntry, TransactionStatus, TransactionType } from '../types';
-import { BRAND_COLORS } from '../constants';
+import { SurveyEntry, TransactionStatus, TransactionType } from '../types.ts';
+import { BRAND_COLORS } from '../constants.ts';
+import { ProblematicBankInfo } from '../App.tsx';
 
 interface DashboardProps {
   entries: SurveyEntry[];
+  problematicBanks: ProblematicBankInfo[];
 }
 
 type TimeRange = 'all' | 'today' | 'week' | 'month';
 
-const Dashboard: React.FC<DashboardProps> = ({ entries }) => {
+const Dashboard: React.FC<DashboardProps> = ({ entries, problematicBanks }) => {
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
 
   const filteredEntries = useMemo(() => {
@@ -29,36 +31,6 @@ const Dashboard: React.FC<DashboardProps> = ({ entries }) => {
       return true;
     });
   }, [entries, timeRange]);
-
-  // حساب مشاكل اليوم حصرياً لقسم المشاكل الفنية
-  const todayIssues = useMemo(() => {
-    const now = new Date().toDateString();
-    const todayRejections = entries.filter(e => 
-      e.status === TransactionStatus.REJECTED && 
-      new Date(e.createdAt).toDateString() === now
-    );
-
-    const bankGroups = todayRejections.reduce((acc: Record<string, { types: Set<string>, lastTime: string, count: number }>, curr) => {
-      if (!acc[curr.bankName]) {
-        acc[curr.bankName] = { types: new Set(), lastTime: curr.createdAt, count: 0 };
-      }
-      acc[curr.bankName].types.add(curr.transactionType);
-      acc[curr.bankName].count += 1;
-      if (new Date(curr.createdAt) > new Date(acc[curr.bankName].lastTime)) {
-        acc[curr.bankName].lastTime = curr.createdAt;
-      }
-      return acc;
-    }, {});
-
-    return Object.keys(bankGroups)
-      .map(bank => ({
-        name: bank,
-        types: Array.from(bankGroups[bank].types),
-        lastTime: bankGroups[bank].lastTime,
-        count: bankGroups[bank].count
-      }))
-      .sort((a, b) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime());
-  }, [entries]);
 
   const stats = useMemo(() => {
     const total = filteredEntries.length;
@@ -213,35 +185,35 @@ const Dashboard: React.FC<DashboardProps> = ({ entries }) => {
             </div>
           </div>
 
-          {/* Rejection List - Today's Issues Only */}
+          {/* Rejection List - Based on the unified problematicBanks array */}
           <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
              <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-8 bg-rose-500 rounded-full"></div>
-                  <h3 className="text-xl font-black text-slate-800">مشاكل فنية (اليوم)</h3>
+                  <h3 className="text-xl font-black text-slate-800">مشاكل فنية (آخر 24 ساعة)</h3>
                 </div>
                 <span className="bg-rose-50 text-rose-600 text-[10px] px-3 py-1 rounded-full font-black border border-rose-100">فقط حالات الرفض</span>
              </div>
              <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                {todayIssues.length > 0 ? todayIssues.map((bank, idx) => (
+                {problematicBanks.length > 0 ? problematicBanks.map((bank, idx) => (
                   <div key={idx} className="flex flex-col p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:border-rose-200 transition-all">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
                         <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-[10px] font-black text-slate-400 border border-slate-100">{idx+1}</span>
-                        <span className="font-black text-slate-700">{bank.name}</span>
+                        <span className="font-black text-slate-700">{bank.bankName}</span>
                       </div>
                       <span className="text-[10px] font-black text-rose-400">
-                        آخر رفض: {new Date(bank.lastTime).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}
+                        آخر رفض: {new Date(bank.lastRejectionTime).toLocaleTimeString('ar-LY', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {bank.types.map((type, i) => (
+                      {bank.issueTypes.map((type, i) => (
                         <span key={i} className="px-3 py-1 bg-white text-rose-500 rounded-lg text-[10px] font-black border border-rose-100 shadow-sm">
                           تعثر {type}
                         </span>
                       ))}
                       <div className="mr-auto text-xs font-black text-rose-600 bg-rose-100/50 px-2 py-1 rounded-md">
-                        {bank.count} حالات
+                        {bank.rejectionCount} حالات
                       </div>
                     </div>
                   </div>
@@ -252,7 +224,7 @@ const Dashboard: React.FC<DashboardProps> = ({ entries }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
-                    <p className="text-slate-400 font-bold">لا توجد تعثرات مسجلة لليوم</p>
+                    <p className="text-slate-400 font-bold">لا توجد تعثرات مسجلة حالياً</p>
                   </div>
                 )}
              </div>
